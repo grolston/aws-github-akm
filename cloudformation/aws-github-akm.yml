@@ -1,0 +1,176 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS GitHub Secrets AKM Lambda.
+
+Parameters:
+
+  pSnsEmailAddress:
+    Type: String
+    Description: Email address for send lambda errors to
+
+  pRepoConfigBucketName:
+    Type: String
+    Description: S3 Bucket to create store repo access list
+
+  pRepoConfigKey:
+    Type: String
+    Description: The S3 Object (file) which will contain the repo list in json format
+    Default: "repos.json"
+
+  pSolutionName:
+    Type: String
+    Description: Friendly name of solution to identify IAM user being managed for API Key rotation
+
+  pGitHubToken:
+    Type: String
+    Description: GitHub account token
+
+  pGitHubMachineUserName:
+    Type: String
+    Description: GitHub account user name associated with token
+
+  pIamUserArn:
+    Type: String
+    Description: Full ARN associated with the IAM user to manage API key rotation
+
+  pIamUserName:
+    Type: String
+    Description: User name of the IAM account to have API keys rotated
+
+  pHoursToRotate:
+    Type: Number
+    Description: Hours between each key rotation
+    Default: 12
+
+  pGitHubSecretNameAwsKeyId:
+    Type: String
+    Description: The GitHub Secret Name value for the AWS Key ID
+    Default: "AWS_ACCESS_KEY_ID"
+
+  pGitHubSecretNameAwsKey:
+    Type: String
+    Description: The GitHub Secret Name value for the AWS Key
+    Default: "AWS_SECRET_ACCESS_KEY"
+
+Resources:
+
+  rRepoConfigBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+        BucketName: !Ref pRepoConfigBucketName
+        BucketEncryption:
+          ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: Yes
+          BlockPublicPolicy: Yes
+          IgnorePublicAcls: Yes
+          RestrictPublicBuckets: Yes
+        VersioningConfiguration:
+          Status: Enabled
+
+  rSnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !Ref pSnsEmailAddress
+          Protocol: email
+
+  rLambdaAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "GHSAKM-${pSolutionName}"
+      AlarmDescription: "Lambda errors during execution"
+      Namespace: "AWS/Lambda"
+      MetricName: "Errors"
+      Dimensions:
+      - Name: "FunctionName"
+        Value: !Sub "GHSAKM-${pSolutionName}"
+      Statistic: "Sum"
+      ComparisonOperator: "GreaterThanThreshold"
+      Threshold: 1
+      EvaluationPeriods: 1
+      Period: 60
+      Unit: "Count"
+      AlarmActions:
+        - !Sub "arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:${rSnsTopic.TopicName}"
+
+  rLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "GHSAKM-AutoRotate-${pSolutionName}"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: AKMLambdaResources
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub 'arn:aws:s3:::${pRepoConfigBucketName}'
+                  - !Sub 'arn:aws:s3:::${pRepoConfigBucketName}/*'
+              - Effect: 'Deny'
+                Action:
+                  - 's3:DeleteBucket'
+                Resource:
+                  - !Sub 'arn:aws:s3:::${pRepoConfigBucketName}'
+              - Effect: "Allow"
+                Action:
+                  - 'sns:Publish'
+                Resource:  !Sub "arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:${rSnsTopic.TopicName}"
+              - Effect: "Allow"
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/OrgInventoryLambdaFunction:*"
+              - Effect: Allow
+                Action:
+                  - iam:List*
+                  - iam:CreateAccessKey
+                  - iam:DeleteAccessKey
+                  - iam:UpdateAccessKey
+                Resource:
+                - !Ref pIamUserArn
+
+  rKeyAutoRotateLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "GHSAKM-${pSolutionName}"
+      Role: !GetAtt rLambdaRole.Arn
+      PackageType: Image
+      Environment:
+        Variables:
+          SNS_ARN: !Sub "arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:${rSnsTopic.TopicName}"
+          REPO_BUCKET: !Ref pRepoConfigBucketName
+          S3_KEY: !Ref pRepoConfigKey
+          IAM_USERNAME: !Ref pIamUserName
+          GITHUB_USER: !Ref pGitHubMachineUserName
+          GITHUB_USER_TOKEN: !Ref pGitHubToken
+          GITHUB_SECRET_NAME_ACCESS_KEY_ID: !Ref pGitHubSecretNameAwsKeyId
+          GITHUB_SECRET_NAME_ACCESS_KEY: !Ref pGitHubSecretNameAwsKey
+      Handler: app.handler
+      Timeout: 900
+      Code:
+        ImageUri: public.ecr.aws/d3m6s1x1/aws-github-akm:0.0.1
+
+  rCloudwatchTrigger:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "GHSAKM-${pSolutionName}"
+      Description: Cloudwatch event to trigger Lambda Function lambda function once an hour.
+      ScheduleExpression: !Sub "rate(${pHoursToRotate} hours)" ## run every hour
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt rKeyAutoRotateLambdaFunction.Arn
+          Id: TargetFunctionV1
