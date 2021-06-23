@@ -56,6 +56,7 @@ Resources:
   rRepoConfigBucket:
     Type: AWS::S3::Bucket
     Properties:
+        #checkov:skip=CKV_AWS_18: "Ensure the S3 bucket has access logging enabled"
         BucketName: !Ref pRepoConfigBucketName
         BucketEncryption:
           ServerSideEncryptionConfiguration:
@@ -72,6 +73,7 @@ Resources:
   rSnsTopic:
     Type: AWS::SNS::Topic
     Properties:
+      #checkov:skip=CKV_AWS_26: "Ensure all data stored in the SNS topic is encrypted"
       Subscription:
         - Endpoint: !Ref pSnsEmailAddress
           Protocol: email
