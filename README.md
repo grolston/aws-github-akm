@@ -2,6 +2,8 @@
 
 A serverless AWS Access Key Manager for your GitHub [Encrypted Secrets](https://docs.github.com/en/actions/reference/encrypted-secrets).
 
+> **Note:** Lambda runs with Lambda container image. Build for dockerfile can be found at [aws-github-akm-docker](https://github.com/grolston/aws-github-akm-docker)
+
 ## General Use-Case
 
 You have one to many GitHub repositories that leverage GitHub Action Secrets with the same AWS IAM User Access Key. You and/or your security team wants to ensure the following:
