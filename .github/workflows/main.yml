@@ -42,18 +42,18 @@ jobs:
         cloudformation_directory: "./cloudformation/"
         scanner: "checkov"
 
-  # deliver:
-  #   name: Deliver
-  #   if: github.ref == 'refs/heads/master'
-  #   needs: [ validate_checkov, validate_cfn-nag, validate-cfn-lint]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - name: Checkout
-  #     uses: actions/checkout@master
-  #   - uses: jakejarvis/s3-sync-action@master
-  #     with:
-  #       args: --delete
-  #     env:
-  #       AWS_REGION: 'us-west-2'
-  #       SOURCE_DIR: 'cloudformation'
-  #       DEST_DIR: 'aws-github-akm'
+  deliver:
+    name: Deliver
+    if: github.ref == 'refs/heads/master'
+    needs: [ validate_checkov, validate_cfn-nag, validate-cfn-lint]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@master
+    - uses: jakejarvis/s3-sync-action@master
+      with:
+        args: --delete
+      env:
+        AWS_REGION: 'us-west-2'
+        SOURCE_DIR: 'cloudformation'
+        DEST_DIR: 'aws-github-akm'
