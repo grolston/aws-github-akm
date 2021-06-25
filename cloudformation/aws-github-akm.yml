@@ -162,7 +162,7 @@ Resources:
           GITHUB_SECRET_NAME_ACCESS_KEY_ID: !Ref pGitHubSecretNameAwsKeyId
           GITHUB_SECRET_NAME_ACCESS_KEY: !Ref pGitHubSecretNameAwsKey
       Handler: app.handler
-      Runtime: python3.8
+      #Runtime: python3.8
       Timeout: 900
       Code:
         ImageUri: public.ecr.aws/d3m6s1x1/aws-github-akm:0.0.1
