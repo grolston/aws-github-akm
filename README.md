@@ -99,5 +99,5 @@ The following example illustrates the format for multiple repositories:
       "Owner":"grolston"
     }
   ]
-}%
+}
 ```
