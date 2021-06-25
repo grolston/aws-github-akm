@@ -50,8 +50,54 @@ The follow parameters will need to be supplied upon deploying the stack
 | Solution Name | Friendly name of solution to identify IAM user being managed for API Key rotation | String | |
 | GitHub Machine User Name | GitHub user account name | String | |
 | GitHub Token | GitHub user personal access token | String | |
-| IamUser Arn | Full ARN associated with the IAM user to manage API key rotation | String | |
+| IAM User Arn | Full ARN associated with the IAM user to manage API key rotation | String | |
 | IAM User Name | User name of the IAM account to have API keys rotated | String |  |
 | Hours To Rotate | Hours between each key rotation | Number | `12` |
 | GitHub Secret Name AWS Key ID | The GitHub Secret Name value for the AWS Key ID | String | `AWS_ACCESS_KEY_ID` |
 | GitHub Secret Name AWS Key | The GitHub Secret Name value for the AWS Key | String | AWS_SECRET_ACCESS_KEY |
+
+
+## S3 Repository List
+
+The stack deploys an S3 Bucket where a json file that contains a list of repositories **will need to be uploaded**. Note after stack deployment, the file uploaded to the S3 bucket must be named the same as the parameter `Repo Config Key`. Each repo defined in the json format contains the attribute `Name` which is the name of the repository and the attribute `owner` which is either the organization or the personal owner the repo is under.
+
+> **Note:** The S3 repository config file must be uploaded after solution is deployed and be in the specified format below.
+
+
+The following is the json format for a single repository:
+
+```json
+{
+  "Repos":[
+    {
+      "Name":"key-management-1",
+      "Owner":"grolston"
+    }
+  ]
+}
+```
+
+The following example illustrates the format for multiple repositories:
+
+```json
+{
+  "Repos":[
+    {
+      "Name":"key-management-4",
+      "Owner":"grolston"
+    },
+    {
+      "Name":"key-management-3",
+      "Owner":"grolston-aws"
+    },
+    {
+      "Name":"key-management-2",
+      "Owner":"grolston"
+    },
+    {
+      "Name":"key-management-1",
+      "Owner":"grolston"
+    }
+  ]
+}%
+```
