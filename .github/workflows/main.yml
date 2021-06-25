@@ -11,15 +11,15 @@ env:
 
 jobs:
 
-  validate_cfn-nag:
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-    - uses: actions/checkout@v2
-    - uses: grolston/cfn-security@v1
-      with:
-        cloudformation_directory: "./cloudformation/"
-        scanner: "cfn-nag"
+  # validate_cfn-nag:
+  #   runs-on: ubuntu-latest
+  #   if: always()
+  #   steps:
+  #   - uses: actions/checkout@v2
+  #   - uses: grolston/cfn-security@v1
+  #     with:
+  #       cloudformation_directory: "./cloudformation/"
+  #       scanner: "cfn-nag"
 
   ## cfn-lint scan
   validate-cfn-lint:
@@ -45,7 +45,7 @@ jobs:
   deliver:
     name: Deliver
     if: github.ref == 'refs/heads/master'
-    needs: [ validate_checkov, validate_cfn-nag, validate-cfn-lint]
+    needs: [ validate_checkov, validate-cfn-lint]
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
