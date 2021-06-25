@@ -16,13 +16,10 @@ Parameters:
     Description: The S3 Object (file) which will contain the repo list in json format
     Default: "repos.json"
 
-  pSolutionName:
-    Type: String
-    Description: Friendly name of solution to identify IAM user being managed for API Key rotation
-
   pGitHubToken:
     Type: String
     Description: GitHub account token
+    NoEcho: true
 
   pGitHubMachineUserName:
     Type: String
@@ -81,13 +78,13 @@ Resources:
   rLambdaAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub "GHSAKM-${pSolutionName}"
+      AlarmName: !Sub "GHSAKM-${pIamUserName}"
       AlarmDescription: "Lambda errors during execution"
       Namespace: "AWS/Lambda"
       MetricName: "Errors"
       Dimensions:
       - Name: "FunctionName"
-        Value: !Sub "GHSAKM-${pSolutionName}"
+        Value: !Sub "GHSAKM-${pIamUserName}"
       Statistic: "Sum"
       ComparisonOperator: "GreaterThanThreshold"
       Threshold: 1
@@ -100,7 +97,7 @@ Resources:
   rLambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "GHSAKM-AutoRotate-${pSolutionName}"
+      RoleName: !Sub "GHSAKM-AutoRotate-${pIamUserName}"
       AssumeRolePolicyDocument:
         Statement:
           - Effect: Allow
@@ -148,7 +145,7 @@ Resources:
   rKeyAutoRotateLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub "GHSAKM-${pSolutionName}"
+      FunctionName: !Sub "GHSAKM-${pIamUserName}"
       Role: !GetAtt rLambdaRole.Arn
       PackageType: Image
       Environment:
@@ -161,7 +158,7 @@ Resources:
           GITHUB_USER_TOKEN: !Ref pGitHubToken
           GITHUB_SECRET_NAME_ACCESS_KEY_ID: !Ref pGitHubSecretNameAwsKeyId
           GITHUB_SECRET_NAME_ACCESS_KEY: !Ref pGitHubSecretNameAwsKey
-      Handler: app.handler
+      #Handler: app.handler
       #Runtime: python3.8
       Timeout: 900
       Code:
@@ -170,7 +167,7 @@ Resources:
   rCloudwatchTrigger:
     Type: AWS::Events::Rule
     Properties:
-      Name: !Sub "GHSAKM-${pSolutionName}"
+      Name: !Sub "GHSAKM-${pIamUserName}"
       Description: Cloudwatch event to trigger Lambda Function lambda function once an hour.
       ScheduleExpression: !Sub "rate(${pHoursToRotate} hours)" ## run every hour
       State: ENABLED
