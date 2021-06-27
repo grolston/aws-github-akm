@@ -162,7 +162,7 @@ Resources:
       #Runtime: python3.8
       Timeout: 900
       Code:
-        ImageUri: public.ecr.aws/d3m6s1x1/aws-github-akm:0.0.1
+        ImageUri: public.ecr.aws/d3m6s1x1/aws-github-akm:latest
 
   rCloudwatchTrigger:
     Type: AWS::Events::Rule
