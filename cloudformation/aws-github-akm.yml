@@ -53,19 +53,19 @@ Resources:
   rRepoConfigBucket:
     Type: AWS::S3::Bucket
     Properties:
-        #checkov:skip=CKV_AWS_18: "Ensure the S3 bucket has access logging enabled"
-        BucketName: !Ref pRepoConfigBucketName
-        BucketEncryption:
-          ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-        PublicAccessBlockConfiguration:
-          BlockPublicAcls: Yes
-          BlockPublicPolicy: Yes
-          IgnorePublicAcls: Yes
-          RestrictPublicBuckets: Yes
-        VersioningConfiguration:
-          Status: Enabled
+      #checkov:skip=CKV_AWS_18: "Ensure the S3 bucket has access logging enabled"
+      BucketName: !Ref pRepoConfigBucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: Yes
+        BlockPublicPolicy: Yes
+        IgnorePublicAcls: Yes
+        RestrictPublicBuckets: Yes
+      VersioningConfiguration:
+        Status: Enabled
 
   rSnsTopic:
     Type: AWS::SNS::Topic
