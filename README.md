@@ -39,7 +39,6 @@ The following will be required within your AWS account:
 
 > **Note:** If you want to open the link as a new tab use `ctrl+click` when clicking the *launch Stack* button below or do the two-finger click and select `open new tab`
 
-
 [![Launch Stack](https://cdn.rawgit.com/buildkite/cloudformation-launch-stack-button-svg/master/launch-stack.svg)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?templateURL=https://rolston-cloud-library.s3.amazonaws.com/aws-github-akm/aws-github-akm.yml)
 
 ## Parameters
