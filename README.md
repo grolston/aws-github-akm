@@ -17,12 +17,16 @@ You have one to many GitHub repositories that leverage GitHub Action Secrets wit
 
 ### GitHub Requirements
 
- - A GitHub machine user account with a [personal access token](https://github.com/settings/tokens) and appropriate permissions for GitHub Actions and repo management
- - Access setup for the GitHub machine user account to each repo with appropriate permissions (maintain)
+The following will be required from your GitHub environment:
+
+- A GitHub machine user account with a [personal access token](https://github.com/settings/tokens) and appropriate permissions for GitHub Actions and repo management
+- Access setup for the GitHub machine user account to each repo with appropriate permissions (maintain)
 
  > **Note:** A GitHub Machine User account is recommended for best practices. For more information and details about a GitHub Machine User reference [GitHub Documentation on Machine Users](https://docs.github.com/en/developers/overview/managing-deploy-keys#machine-users)
 
 ### AWS Requirements
+
+The following will be required within your AWS account:
 
 - AWS Account with IAM User which has appropriate permissions for your CICD needs
 - Ability to deploy the CloudFormation stack resources
