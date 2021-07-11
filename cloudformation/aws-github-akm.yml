@@ -1,6 +1,50 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: AWS GitHub Secrets AKM Lambda.
 
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: GitHub Configuration
+        Parameters:
+          - pGitHubMachineUserName
+          - pGitHubToken
+          - pGitHubSecretNameAwsKeyId
+          - pGitHubSecretNameAwsKey
+      - Label:
+          default: AWS Configuration
+        Parameters:
+          - pIamUserName
+          - pIamUserArn
+          - pRepoConfigBucketName
+          - pRepoConfigKey
+      - Label:
+          default: Automation Configurations
+        Parameters:
+          - pHoursToRotate
+          - pSnsEmailAddress
+    ParameterLabels:
+      pGitHubMachineUserName:
+        default: GitHub Machine User Name
+      pGitHubToken:
+        default: GitHub Personal Access Token
+      pGitHubSecretNameAwsKeyId:
+        default: GitHub Secret Name AWS Key ID
+      pGitHubSecretNameAwsKey:
+        default: GitHub Secret Name AWS Key
+      pIamUserName:
+        default: IAM User Name
+      pIamUserArn:
+        default: IAM User ARN
+      pRepoConfigBucketName:
+        default: Repo Config Bucket Name
+      pRepoConfigKey:
+        default: Repo Config Key
+      pHoursToRotate:
+        default: Hours To Rotate
+      pSnsEmailAddress:
+        default: SNS Email Address
+
 Parameters:
 
   pSnsEmailAddress:
@@ -65,7 +109,7 @@ Resources:
         IgnorePublicAcls: Yes
         RestrictPublicBuckets: Yes
       VersioningConfiguration:
-        Status: Enabled
+        Status: Suspended
 
   rSnsTopic:
     Type: AWS::SNS::Topic
@@ -74,25 +118,6 @@ Resources:
       Subscription:
         - Endpoint: !Ref pSnsEmailAddress
           Protocol: email
-
-  rSsmScriptAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: !Sub "GHSAKM-${pIamUserName}"
-      AlarmDescription: "Lambda errors during execution"
-      Namespace: "AWS/Lambda"
-      MetricName: "Errors"
-      Dimensions:
-      - Name: "FunctionName"
-        Value: !Sub "GHSAKM-${pIamUserName}"
-      Statistic: "Sum"
-      ComparisonOperator: "GreaterThanThreshold"
-      Threshold: 1
-      EvaluationPeriods: 1
-      Period: 60
-      Unit: "Count"
-      AlarmActions:
-        - !Sub "arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:${rSnsTopic.TopicName}"
 
   rSsmRole:
     Type: AWS::IAM::Role
@@ -103,11 +128,11 @@ Resources:
           - Effect: Allow
             Principal:
               Service:
-                - lambda.amazonaws.com
+                - ssm.amazonaws.com
             Action:
               - sts:AssumeRole
       Policies:
-        - PolicyName: AKMLambdaResources
+        - PolicyName: GHSAKMResources
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -152,31 +177,31 @@ Resources:
         schemaVersion: '0.3'
         assumeRole: !GetAtt rSsmRole.Arn
         parameters:
-          REPO_BUCKET:
+          REPOBUCKET:
             description: "S3 Bucket to create store repo access list"
             type: "String"
-            default: !Reg pRepoConfigBucketName
-          S3_KEY:
+            default: !Ref pRepoConfigBucketName
+          S3KEY:
             description: "The S3 Object (file) which will contain the repo list in json format"
             type: "String"
             default: !Ref pRepoConfigKey
-          IAM_USERNAME:
+          IAMUSERNAME:
             description: "Full ARN associated with the IAM user to manage API key rotation"
             type: "String"
             default: !Ref pIamUserName
-          GITHUB_USER:
+          GITHUBUSER:
             description: "GitHub account user name associated with token"
             type: "String"
             default: !Ref pGitHubMachineUserName
-          GITHUB_USER_TOKEN:
+          GITHUBUSERTOKEN:
             description: "GitHub account personal access token"
             type: "String"
             default: !Ref pGitHubToken
-          GITHUB_SECRET_NAME_ACCESS_KEY_ID:
+          GITHUBSECRETNAMEACCESSKEYID:
             description: "The GitHub Secret Name value for the AWS Key ID"
             type: "String"
             default: !Ref pGitHubSecretNameAwsKeyId
-          GITHUB_SECRET_NAME_ACCESS_KEY:
+          GITHUBSECRETNAMEACCESSKEY:
             description: "The GitHub Secret Name value for the AWS Key"
             type: "String"
             default: !Ref pGitHubSecretNameAwsKey
@@ -186,13 +211,13 @@ Resources:
             inputs:
               Runtime: PowerShell Core 6.0
               InputPayload:
-                REPO_BUCKET: "{{REPO_BUCKET}}"
-                S3_KEY: "{{S3_KEY}}"
-                IAM_USERNAME: "{{IAM_USERNAME}}"
-                GITHUB_USER: "{{GITHUB_USER}}"
-                GITHUB_USER_TOKEN: "{{GITHUB_USER_TOKEN}}"
-                GITHUB_SECRET_NAME_ACCESS_KEY_ID: "{{GITHUB_SECRET_NAME_ACCESS_KEY_ID}}"
-                GITHUB_SECRET_NAME_ACCESS_KEY: "{{GITHUB_SECRET_NAME_ACCESS_KEY}}"
+                REPO_BUCKET: "{{REPOBUCKET}}"
+                S3_KEY: "{{S3KEY}}"
+                IAM_USERNAME: "{{IAMUSERNAME}}"
+                GITHUB_USER: "{{GITHUBUSER}}"
+                GITHUB_USER_TOKEN: "{{GITHUBUSERTOKEN}}"
+                GITHUB_SECRET_NAME_ACCESS_KEY_ID: "{{GITHUBSECRETNAMEACCESSKEYID}}"
+                GITHUB_SECRET_NAME_ACCESS_KEY: "{{GITHUBSECRETNAMEACCESSKEY}}"
               Script: |-
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.IdentityManagement -confirm:$false -Force
@@ -253,9 +278,9 @@ Resources:
 
                 Delete-IamUserAccessKeys -IamUserName $IAM_USERNAME
                 $IamNewAccessKey = New-IAMAccessKey -UserName $IAM_USERNAME
-
-                Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $S3_KEY
-                $Repos = (Get-Content $S3_KEY | ConvertFrom-Json).Repos
+                $tmpfile = "/tmp/$S3_KEY"
+                Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
+                $Repos = (Get-Content $tmpfile | ConvertFrom-Json).Repos
 
                 foreach($repo in $Repos){
                   Write-Host "Updating $($repo.Name) in $($repo.Owner) org/profile"
@@ -270,13 +295,40 @@ Resources:
                 }
                 Write-Host "Sync Complete"
 
-  rCloudwatchTrigger:
+  rEventsRuleRotateRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "GHSAKM-Events-${pIamUserName}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - events.amazonaws.com
+      Path: "/"
+      Policies:
+        - PolicyName: "StartSSM"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ssm:StartAutomationExecution"
+                Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${rAkmSsmAutomation}:*"
+
+  rEventsRuleRotate:
     Type: AWS::Events::Rule
     Properties:
-      Name: !Sub "GHSAKM-${pIamUserName}"
-      Description: Cloudwatch event to trigger Lambda Function lambda function once an hour.
-      ScheduleExpression: !Sub "rate(${pHoursToRotate} hours)" ## run every hour
+      Name: !Sub "GHSAKM-Rotate-${pIamUserName}"
+      Description: !Sub "Event to trigger GHSAKM-Rotate-${pIamUserName} Automation document."
+      ScheduleExpression: !Sub "rate(${pHoursToRotate} hours)"
+      RoleArn: !GetAtt  rEventsRuleRotateRole.Arn
       State: ENABLED
       Targets:
-        - Arn: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:document/${rAkmSsmAutomation}
-          Id: TargetFunctionV1
+        - Arn: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${rAkmSsmAutomation}:$DEFAULT
+          Id: !Sub "GHSAKM-Rotate-${pIamUserName}"
+          Input: !Sub '{"REPOBUCKET":["${pRepoConfigBucketName}"],"GITHUBUSER":["${pGitHubMachineUserName}"],"S3KEY":["${pRepoConfigKey}"],"GITHUBSECRETNAMEACCESSKEYID":["${pGitHubSecretNameAwsKeyId}"],"IAMUSERNAME":["${pIamUserName}"],"GITHUBSECRETNAMEACCESSKEY":["${pGitHubSecretNameAwsKey}"],"GITHUBUSERTOKEN":["${pGitHubToken}"]}'
+          RoleArn: !GetAtt  rSsmRole.Arn
