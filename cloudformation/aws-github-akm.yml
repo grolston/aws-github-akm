@@ -98,6 +98,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       #checkov:skip=CKV_AWS_18: "Ensure the S3 bucket has access logging enabled"
+      #checkov:skip=CKV_AWS_21: "Ensure the S3 bucket has versioning enabled"
       BucketName: !Ref pRepoConfigBucketName
       BucketEncryption:
         ServerSideEncryptionConfiguration:
