@@ -331,4 +331,4 @@ Resources:
         - Arn: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${rAkmSsmAutomation}:$DEFAULT
           Id: !Sub "GHSAKM-Rotate-${pIamUserName}"
           Input: !Sub '{"REPOBUCKET":["${pRepoConfigBucketName}"],"GITHUBUSER":["${pGitHubMachineUserName}"],"S3KEY":["${pRepoConfigKey}"],"GITHUBSECRETNAMEACCESSKEYID":["${pGitHubSecretNameAwsKeyId}"],"IAMUSERNAME":["${pIamUserName}"],"GITHUBSECRETNAMEACCESSKEY":["${pGitHubSecretNameAwsKey}"],"GITHUBUSERTOKEN":["${pGitHubToken}"]}'
-          RoleArn: !GetAtt  rSsmRole.Arn
+          RoleArn: !GetAtt  rEventsRuleRotateRole.Arn
