@@ -81,6 +81,8 @@ Parameters:
     Type: Number
     Description: Hours between each key rotation
     Default: 12
+    MinValue: 2
+    MaxValue: 24
 
   pGitHubSecretNameAwsKeyId:
     Type: String
@@ -123,7 +125,7 @@ Resources:
   rSsmRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "GHSAKM-AutoRotate-${pIamUserName}"
+      RoleName: !Sub "GHSAKM-SSM-${pIamUserName}"
       AssumeRolePolicyDocument:
         Statement:
           - Effect: Allow
