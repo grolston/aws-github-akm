@@ -457,8 +457,6 @@ Resources:
                   Write-Host "GitHub repo $OWNER/$REPO does not exist in config file"
                 }
 
-
-
   rEventsRuleRotateRole:
     Type: AWS::IAM::Role
     Properties:
