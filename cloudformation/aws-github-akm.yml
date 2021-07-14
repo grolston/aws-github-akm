@@ -172,9 +172,9 @@ Resources:
     Type: AWS::SSM::Document
     Properties:
       DocumentType: Automation
-      Name: !Sub  "GHS-AKM-${pIamUserName}"
+      Name: !Sub  "GHS-AKM-${pIamUserName}-Rotate"
       Content:
-        description: Template for Running aws execute script that use PowerShell
+        description: !Sub "Rotate IAM Access key and sync to GitHub Repositories Secrets for GHS-AKM-${pIamUserName}"
         schemaVersion: '0.3'
         assumeRole: !GetAtt rSsmRole.Arn
         parameters:
@@ -295,6 +295,169 @@ Resources:
                   Set-RepoSecret -repoOwner $repo.Owner -repoName $repo.Name -keyId $keyId -GitHubToken $GITHUB_USER_TOKEN -GitHubUser $GITHUB_USER -SecretName $GITHUB_SECRET_NAME_ACCESS_KEY_ID -SecretValue $repoEncryptedStringAccessKeyId
                 }
                 Write-Host "Sync Complete"
+
+  rAkmSsmGetRepoList:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Automation
+      Name: !Sub  "GHS-AKM-${pIamUserName}-Get-RepoList"
+      Content:
+        description: !Sub "Review current Repo List for GHS-AKM-${pIamUserName}"
+        schemaVersion: '0.3'
+        assumeRole: !GetAtt rSsmRole.Arn
+        parameters:
+          REPOBUCKET:
+            description: "S3 Bucket to store repo access list"
+            type: "String"
+            default: !Ref pRepoConfigBucketName
+          S3KEY:
+            description: "The S3 Object (file) that contains the repo list in json format"
+            type: "String"
+            default: !Ref pRepoConfigKey
+        mainSteps:
+          - name: ExecuteCode
+            action: 'aws:executeScript'
+            inputs:
+              Runtime: PowerShell Core 6.0
+              InputPayload:
+                REPO_BUCKET: "{{REPOBUCKET}}"
+                S3_KEY: "{{S3KEY}}"
+              Script: |-
+                $ErrorActionPreference = 'Stop';
+                Install-Module AWS.Tools.S3 -Confirm:$false -Force
+                Import-Module AWS.Tools.S3
+
+                $payload = $env:InputPayload | ConvertFrom-Json;
+                $REPO_BUCKET= $payload.REPO_BUCKET
+                $S3_KEY= $payload.S3_KEY
+
+                $tmpfile = "/tmp/$S3_KEY"
+                Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
+                [string]$jsonString = Get-Content $tmpfile
+                if(Test-Json $jsonString -EA SilentlyContinue ){
+                  $Repos = (Get-Content $tmpfile | ConvertFrom-Json).Repos
+                }else {write-error "$REPO_BUCKET / $S3_KEY is not valid JSON" -EA Stop}
+                $Repos | Format-Table -AutoSize -Wrap
+
+  rAkmSsmAddRepoConfig:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Automation
+      Name: !Sub  "GHS-AKM-${pIamUserName}-Add-RepoConfig"
+      Content:
+        description: !Sub "Add new repo to current Repo List for GHS-AKM-${pIamUserName}"
+        schemaVersion: '0.3'
+        assumeRole: !GetAtt rSsmRole.Arn
+        parameters:
+          REPOBUCKET:
+            description: "S3 Bucket to store repo access list"
+            type: "String"
+            default: !Ref pRepoConfigBucketName
+          OWNER:
+            description: "The Owner (Profile/Organization) of the GitHub Repository"
+            type: "String"
+          REPO:
+            description: "The name of the GitHub Repository"
+            type: "String"
+        mainSteps:
+          - name: ExecuteCode
+            action: 'aws:executeScript'
+            inputs:
+              Runtime: PowerShell Core 6.0
+              InputPayload:
+                REPO_BUCKET: "{{REPOBUCKET}}"
+                S3_KEY: "{{S3KEY}}"
+                OWNER: "{{OWNER}}"
+                REPO: "{{REPO}}"
+              Script: |-
+                $ErrorActionPreference = 'Stop';
+                Install-Module AWS.Tools.S3 -Confirm:$false -Force
+                Import-Module AWS.Tools.S3
+
+                $payload = $env:InputPayload | ConvertFrom-Json;
+                $REPO_BUCKET= $payload.REPO_BUCKET
+                $S3_KEY= $payload.S3_KEY
+
+                $tmpfile = "/tmp/$S3_KEY"
+                Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
+                [string]$jsonString = Get-Content $tmpfile
+                if(Test-Json $jsonString -EA SilentlyContinue ){
+                  $Repos = (Get-Content $tmpfile | ConvertFrom-Json).Repos
+                  Write-Host "Initial repo config file: $jsonString"
+                }else {write-error "$REPO_BUCKET / $S3_KEY is not valid JSON" -EA Stop}
+                if(($REPO -notin $Repos.Name) -and ($OWNER -notin $Repos.Owner)){
+                  $NewRepos = {$Repos}.Invoke()
+                  $ConfigRepo = New-Object -TypeName PSObject
+                  Add-Member -InputObject $ConfigRepo -MemberType NoteProperty -Name "Name" -Value $REPO
+                  Add-Member -InputObject $ConfigRepo -MemberType NoteProperty -Name "Owner" -Value $OWNER
+                  $NewRepos.Add($ConfigRepo)
+                  $jsonBase = @{"Repos"=$NewRepos;}
+                  [string]$JsonObject = $jsonBase | ConvertTo-Json -Depth 10
+                  Write-Host "Repo config being saved: $JsonObject"
+                  Write-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -Content $JsonObject
+                }else {
+                  Write-Host "GitHub repo $OWNER/$REPO already in config file"
+                }
+
+  rAkmSsmDeleteRepoConfig:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Automation
+      Name: !Sub  "GHS-AKM-${pIamUserName}-Delete-RepoConfig"
+      Content:
+        description: !Sub "Delete a repo from the Repo List for GHS-AKM-${pIamUserName}"
+        schemaVersion: '0.3'
+        assumeRole: !GetAtt rSsmRole.Arn
+        parameters:
+          REPOBUCKET:
+            description: "S3 Bucket to store repo access list"
+            type: "String"
+            default: !Ref pRepoConfigBucketName
+          OWNER:
+            description: "The Owner (Profile/Organization) of the GitHub Repository"
+            type: "String"
+          REPO:
+            description: "The name of the GitHub Repository"
+            type: "String"
+        mainSteps:
+          - name: ExecuteCode
+            action: 'aws:executeScript'
+            inputs:
+              Runtime: PowerShell Core 6.0
+              InputPayload:
+                REPO_BUCKET: "{{REPOBUCKET}}"
+                S3_KEY: "{{S3KEY}}"
+                OWNER: "{{OWNER}}"
+                REPO: "{{REPO}}"
+              Script: |-
+                $ErrorActionPreference = 'Stop';
+                Install-Module AWS.Tools.S3 -Confirm:$false -Force
+                Import-Module AWS.Tools.S3
+
+                $payload = $env:InputPayload | ConvertFrom-Json;
+                $REPO_BUCKET= $payload.REPO_BUCKET
+                $S3_KEY= $payload.S3_KEY
+
+                $tmpfile = "/tmp/$S3_KEY"
+                Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
+                [string]$jsonString = Get-Content $tmpfile
+                if(Test-Json $jsonString -EA SilentlyContinue ){
+                  $Repos = (Get-Content $tmpfile | ConvertFrom-Json).Repos
+                  Write-Host "Initial repo config file: $jsonString"
+                }else {write-error "$REPO_BUCKET / $S3_KEY is not valid JSON" -EA Stop}
+                if(($REPO -in $Repos.Name) -and ($OWNER -in $Repos.Owner)){
+                  $NewRepos = {$Repos}.Invoke()
+                  Write-Host "Removing Name: $REPO ; Owner: $OWNER "
+                  $NewRepos = $NewRepos | % { if(!(($_.Owner -like $OWNER) -and ($_.Name -like $REPO))){$_} }
+                  $jsonBase = @{"Repos"=$NewRepos;}
+                  [string]$JsonObject = $jsonBase | ConvertTo-Json -Depth 10
+                  Write-Host "Repo config being saved: $JsonObject"
+                  Write-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -Content $JsonObject
+                }else {
+                  Write-Host "GitHub repo $OWNER/$REPO does not exist in config file"
+                }
+
+
 
   rEventsRuleRotateRole:
     Type: AWS::IAM::Role
