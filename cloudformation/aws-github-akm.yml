@@ -125,7 +125,7 @@ Resources:
   rSsmRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "GHSAKM-SSM-${pIamUserName}"
+      RoleName: !Sub "GHS-AKM-SSM-${pIamUserName}"
       AssumeRolePolicyDocument:
         Statement:
           - Effect: Allow
@@ -160,7 +160,7 @@ Resources:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource:
-                  - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/OrgInventoryLambdaFunction:*"
+                  - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/ssm/automation/executeScript:*"
               - Effect: Allow
                 Action:
                   - iam:List*
