@@ -96,6 +96,16 @@ Parameters:
 
 Resources:
 
+  rGitHubTokenSecret:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      Name: !Sub "GHS-AKM-${pIamUserName}-GitHubToken-${pGitHubMachineUserName}"
+      Description: !Sub "GitHub User PAT for GitHub API sync of AWS Access Key for ${pIamUserName}"
+      SecretString: !Ref pGitHubToken
+      Tags:
+        - Key: "Solution"
+          Value: !Sub "GHS-AKM-${pIamUserName}"
+
   rRepoConfigBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -168,7 +178,18 @@ Resources:
                   - iam:DeleteAccessKey
                   - iam:UpdateAccessKey
                 Resource:
-                - !Ref pIamUserArn
+                  - !Ref pIamUserArn
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:List*
+                  - secretsmanager:CreateSecret
+                  - secretsmanager:DeleteSecret
+                  - secretsmanager:UpdateSecret
+                  - secretsmanager:PutSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource:
+                  - !Ref rGitHubTokenSecret
 
   rAkmSsmAutomation:
     Type: AWS::SSM::Document
@@ -196,10 +217,10 @@ Resources:
             description: "GitHub account user name associated with token"
             type: "String"
             default: !Ref pGitHubMachineUserName
-          GITHUBUSERTOKEN:
-            description: "GitHub account personal access token"
+          SECRETMANAGERGITHUBTOKEN:
+            description: "DO NOT CHANGE. The Secret Manager ARN for the GitHub PAT"
             type: "String"
-            default: !Ref pGitHubToken
+            default: !Ref rGitHubTokenSecret
           GITHUBSECRETNAMEACCESSKEYID:
             description: "The GitHub Secret Name value for the AWS Key ID"
             type: "String"
@@ -208,6 +229,10 @@ Resources:
             description: "The GitHub Secret Name value for the AWS Key"
             type: "String"
             default: !Ref pGitHubSecretNameAwsKey
+          REGION:
+            description: "AWS region to run commands in"
+            type: "String"
+            default: !Sub "${AWS::Region}"
         mainSteps:
           - name: ExecuteCode
             action: 'aws:executeScript'
@@ -221,23 +246,28 @@ Resources:
                 GITHUB_USER_TOKEN: "{{GITHUBUSERTOKEN}}"
                 GITHUB_SECRET_NAME_ACCESS_KEY_ID: "{{GITHUBSECRETNAMEACCESSKEYID}}"
                 GITHUB_SECRET_NAME_ACCESS_KEY: "{{GITHUBSECRETNAMEACCESSKEY}}"
+                REGION: "{{REGION}}"
               Script: |-
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.IdentityManagement -confirm:$false -Force
                 Install-Module PSSodium -confirm:$false -Force
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force
+                Install Module AWS.Tools.SecretsManager -Confirm:$false -Force
                 Import-Module PSSodium;
                 Import-Module AWS.Tools.IdentityManagement;
                 Import-Module AWS.Tools.S3
+                Import-Module AWS.Tools.SecretsManager
 
                 $payload = $env:InputPayload | ConvertFrom-Json;
                 $REPO_BUCKET= $payload.REPO_BUCKET
                 $S3_KEY= $payload.S3_KEY
                 $IAM_USERNAME= $payload.IAM_USERNAME
                 $GITHUB_USER= $payload.GITHUB_USER
-                $GITHUB_USER_TOKEN= $payload.GITHUB_USER_TOKEN
+                $SECRETS_MANAGER_ARN_GITHUB_TOKEN= $payload.SECRETMANAGERGITHUBTOKEN
                 $GITHUB_SECRET_NAME_ACCESS_KEY_ID= $payload.GITHUB_SECRET_NAME_ACCESS_KEY_ID
                 $GITHUB_SECRET_NAME_ACCESS_KEY= $payload.GITHUB_SECRET_NAME_ACCESS_KEY
+                $REGION = $payload.REGION
+                $GITHUB_USER_TOKEN Get-SECSecretValue -SecretId $SECRETS_MANAGER_ARN_GITHUB_TOKEN -Region $REGION
                 # Deletes all IAM Access keys
                 function Delete-IamUserAccessKeys {
                   PARAM([string]$IamUserName)
