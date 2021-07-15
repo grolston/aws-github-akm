@@ -516,8 +516,8 @@ Resources:
   rEventsRuleRotate:
     Type: AWS::Events::Rule
     Properties:
-      Name: !Sub "GHSAKM-Rotate-${pIamUserName}"
-      Description: !Sub "Event to trigger GHSAKM-Rotate-${pIamUserName} Automation document."
+      Name: !Sub "GHS-AKM-Rotate-${pIamUserName}"
+      Description: !Sub "Event to trigger GHS-AKM-Rotate-${pIamUserName} Automation document."
       ScheduleExpression: !Sub "rate(${pHoursToRotate} hours)"
       RoleArn: !GetAtt  rEventsRuleRotateRole.Arn
       State: ENABLED
