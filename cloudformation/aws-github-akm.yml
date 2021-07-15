@@ -267,7 +267,7 @@ Resources:
                 $GITHUB_SECRET_NAME_ACCESS_KEY_ID= $payload.GITHUB_SECRET_NAME_ACCESS_KEY_ID
                 $GITHUB_SECRET_NAME_ACCESS_KEY= $payload.GITHUB_SECRET_NAME_ACCESS_KEY
                 $REGION = $payload.REGION
-                $GITHUB_USER_TOKEN Get-SECSecretValue -SecretId $SECRETS_MANAGER_ARN_GITHUB_TOKEN -Region $REGION
+                $GITHUB_USER_TOKEN = $(Get-SECSecretValue -SecretId $SECRETS_MANAGER_ARN_GITHUB_TOKEN -Region $REGION).SecretString
                 # Deletes all IAM Access keys
                 function Delete-IamUserAccessKeys {
                   PARAM([string]$IamUserName)
