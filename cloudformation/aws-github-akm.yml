@@ -79,10 +79,10 @@ Parameters:
 
   pHoursToRotate:
     Type: Number
-    Description: Hours between each key rotation
-    Default: 12
+    Description: Hours between each key rotation (week=168, month=730, quarter= 2920 )
+    Default: 24
     MinValue: 2
-    MaxValue: 24
+    MaxValue: 2190
 
   pGitHubSecretNameAwsKeyId:
     Type: String
@@ -151,7 +151,10 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - s3:GetObject
+                  - 's3:DeleteObject'
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
                 Resource:
                   - !Sub 'arn:aws:s3:::${pRepoConfigBucketName}'
                   - !Sub 'arn:aws:s3:::${pRepoConfigBucketName}/*'
@@ -239,20 +242,20 @@ Resources:
             inputs:
               Runtime: PowerShell Core 6.0
               InputPayload:
-                REPO_BUCKET: "{{REPOBUCKET}}"
-                S3_KEY: "{{S3KEY}}"
-                IAM_USERNAME: "{{IAMUSERNAME}}"
-                GITHUB_USER: "{{GITHUBUSER}}"
-                GITHUB_USER_TOKEN: "{{GITHUBUSERTOKEN}}"
-                GITHUB_SECRET_NAME_ACCESS_KEY_ID: "{{GITHUBSECRETNAMEACCESSKEYID}}"
-                GITHUB_SECRET_NAME_ACCESS_KEY: "{{GITHUBSECRETNAMEACCESSKEY}}"
-                REGION: "{{REGION}}"
+                REPO_BUCKET: "{{ REPOBUCKET }}"
+                S3_KEY: "{{ S3KEY }}"
+                IAM_USERNAME: "{{ IAMUSERNAME }}"
+                GITHUB_USER: "{{ GITHUBUSER }}"
+                SECRET_MANAGER_GITHUBTOKEN: "{{ SECRETMANAGERGITHUBTOKEN }}"
+                GITHUB_SECRET_NAME_ACCESS_KEY_ID: "{{ GITHUBSECRETNAMEACCESSKEYID }}"
+                GITHUB_SECRET_NAME_ACCESS_KEY: "{{ GITHUBSECRETNAMEACCESSKEY }}"
+                AWS_REGION: "{{ REGION }}"
               Script: |-
                 $ErrorActionPreference = 'Stop';
-                Install-Module AWS.Tools.IdentityManagement -confirm:$false -Force
-                Install-Module PSSodium -confirm:$false -Force
-                Install-Module AWS.Tools.S3 -Confirm:$false -Force
-                Install Module AWS.Tools.SecretsManager -Confirm:$false -Force
+                Install-Module AWS.Tools.IdentityManagement -confirm:$false -Force;
+                Install-Module PSSodium -confirm:$false -Force;
+                Install-Module AWS.Tools.S3 -Confirm:$false -Force;
+                Install-Module AWS.Tools.SecretsManager -Confirm:$false -Force;
                 Import-Module PSSodium;
                 Import-Module AWS.Tools.IdentityManagement;
                 Import-Module AWS.Tools.S3
@@ -263,10 +266,10 @@ Resources:
                 $S3_KEY= $payload.S3_KEY
                 $IAM_USERNAME= $payload.IAM_USERNAME
                 $GITHUB_USER= $payload.GITHUB_USER
-                $SECRETS_MANAGER_ARN_GITHUB_TOKEN= $payload.SECRETMANAGERGITHUBTOKEN
+                $SECRETS_MANAGER_ARN_GITHUB_TOKEN= $payload.SECRET_MANAGER_GITHUBTOKEN
                 $GITHUB_SECRET_NAME_ACCESS_KEY_ID= $payload.GITHUB_SECRET_NAME_ACCESS_KEY_ID
                 $GITHUB_SECRET_NAME_ACCESS_KEY= $payload.GITHUB_SECRET_NAME_ACCESS_KEY
-                $REGION = $payload.REGION
+                $REGION = $payload.AWS_REGION
                 $GITHUB_USER_TOKEN = $(Get-SECSecretValue -SecretId $SECRETS_MANAGER_ARN_GITHUB_TOKEN -Region $REGION).SecretString
                 # Deletes all IAM Access keys
                 function Delete-IamUserAccessKeys {
@@ -352,8 +355,8 @@ Resources:
             inputs:
               Runtime: PowerShell Core 6.0
               InputPayload:
-                REPO_BUCKET: "{{REPOBUCKET}}"
-                S3_KEY: "{{S3KEY}}"
+                REPO_BUCKET: "{{ REPOBUCKET }}"
+                S3_KEY: "{{ S3KEY }}"
               Script: |-
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force
@@ -364,12 +367,15 @@ Resources:
                 $S3_KEY= $payload.S3_KEY
 
                 $tmpfile = "/tmp/$S3_KEY"
+                Write-Host "Attempting to access s3: $REPO_BUCKET / $S3_KEY"
                 Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
                 [string]$jsonString = Get-Content $tmpfile
                 if(Test-Json $jsonString -EA SilentlyContinue ){
                   $Repos = (Get-Content $tmpfile | ConvertFrom-Json).Repos
                 }else {write-error "$REPO_BUCKET / $S3_KEY is not valid JSON" -EA Stop}
-                $Repos | Format-Table -AutoSize -Wrap
+                foreach($repo in $Repos){
+                  Write-Host "REPO: $($repo.Name) ; OWNER: $($repo.Owner)"
+                }
 
   rAkmSsmAddRepoConfig:
     Type: AWS::SSM::Document
@@ -385,10 +391,14 @@ Resources:
             description: "S3 Bucket to store repo access list"
             type: "String"
             default: !Ref pRepoConfigBucketName
-          OWNER:
+          S3KEY:
+            description: "The S3 Object (file) which will contain the repo list in json format"
+            type: "String"
+            default: !Ref pRepoConfigKey
+          GITHUBOWNER:
             description: "The Owner (Profile/Organization) of the GitHub Repository"
             type: "String"
-          REPO:
+          GITHUBREPO:
             description: "The name of the GitHub Repository"
             type: "String"
         mainSteps:
@@ -397,10 +407,10 @@ Resources:
             inputs:
               Runtime: PowerShell Core 6.0
               InputPayload:
-                REPO_BUCKET: "{{REPOBUCKET}}"
-                S3_KEY: "{{S3KEY}}"
-                OWNER: "{{OWNER}}"
-                REPO: "{{REPO}}"
+                REPO_BUCKET: "{{ REPOBUCKET }}"
+                S3_KEY: "{{ S3KEY }}"
+                OWNER: "{{ GITHUBOWNER }}"
+                REPO: "{{ GITHUBREPO }}"
               Script: |-
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force
@@ -409,15 +419,30 @@ Resources:
                 $payload = $env:InputPayload | ConvertFrom-Json;
                 $REPO_BUCKET= $payload.REPO_BUCKET
                 $S3_KEY= $payload.S3_KEY
+                $OWNER = $payload.OWNER
+                $REPO = $payload.REPO
 
                 $tmpfile = "/tmp/$S3_KEY"
                 Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
                 [string]$jsonString = Get-Content $tmpfile
                 if(Test-Json $jsonString -EA SilentlyContinue ){
                   $Repos = (Get-Content $tmpfile | ConvertFrom-Json).Repos
-                  Write-Host "Initial repo config file: $jsonString"
                 }else {write-error "$REPO_BUCKET / $S3_KEY is not valid JSON" -EA Stop}
-                if(($REPO -notin $Repos.Name) -and ($OWNER -notin $Repos.Owner)){
+                Write-Host "Repos prior to addition:"
+                foreach($github_repo in $Repos){
+                  Write-Host "REPO: $($github_repo.Name) ; OWNER: $($github_repo.Owner)"
+                }
+                Write-Host "----------------------"
+                $ConfigExists = $false
+                foreach($gh_repo in $Repos){
+                  if($gh_repo.Name -LIKE $REPO){
+                    if($gh_repo.Owner -LIKE $OWNER){
+                      $ConfigExists = $true
+                    }
+                  }
+                }
+
+                if($ConfigExists -EQ $false){
                   $NewRepos = {$Repos}.Invoke()
                   $ConfigRepo = New-Object -TypeName PSObject
                   Add-Member -InputObject $ConfigRepo -MemberType NoteProperty -Name "Name" -Value $REPO
@@ -445,22 +470,26 @@ Resources:
             description: "S3 Bucket to store repo access list"
             type: "String"
             default: !Ref pRepoConfigBucketName
-          OWNER:
+          GITHUBOWNER:
             description: "The Owner (Profile/Organization) of the GitHub Repository"
             type: "String"
-          REPO:
+          GITHUBREPO:
             description: "The name of the GitHub Repository"
             type: "String"
+          S3KEY:
+            description: "The S3 Object (file) which will contain the repo list in json format"
+            type: "String"
+            default: !Ref pRepoConfigKey
         mainSteps:
           - name: ExecuteCode
             action: 'aws:executeScript'
             inputs:
               Runtime: PowerShell Core 6.0
               InputPayload:
-                REPO_BUCKET: "{{REPOBUCKET}}"
-                S3_KEY: "{{S3KEY}}"
-                OWNER: "{{OWNER}}"
-                REPO: "{{REPO}}"
+                REPO_BUCKET: "{{ REPOBUCKET }}"
+                S3_KEY: "{{ S3KEY }}"
+                OWNER: "{{ GITHUBOWNER }}"
+                REPO: "{{ GITHUBREPO }}"
               Script: |-
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force
@@ -469,15 +498,30 @@ Resources:
                 $payload = $env:InputPayload | ConvertFrom-Json;
                 $REPO_BUCKET= $payload.REPO_BUCKET
                 $S3_KEY= $payload.S3_KEY
+                $OWNER = $payload.OWNER
+                $REPO = $payload.REPO
 
                 $tmpfile = "/tmp/$S3_KEY"
                 Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
                 [string]$jsonString = Get-Content $tmpfile
                 if(Test-Json $jsonString -EA SilentlyContinue ){
                   $Repos = (Get-Content $tmpfile | ConvertFrom-Json).Repos
-                  Write-Host "Initial repo config file: $jsonString"
                 }else {write-error "$REPO_BUCKET / $S3_KEY is not valid JSON" -EA Stop}
-                if(($REPO -in $Repos.Name) -and ($OWNER -in $Repos.Owner)){
+                Write-Host "Repos prior to addition:"
+                foreach($github_repo in $Repos){
+                  Write-Host "REPO: $($github_repo.Name) ; OWNER: $($github_repo.Owner)"
+                }
+
+                $ConfigExists = $false
+                foreach($gh_repo in $Repos){
+                  if($gh_repo.Name -LIKE $REPO){
+                    if($gh_repo.Owner -LIKE $OWNER){
+                      $ConfigExists = $true
+                    }
+                  }
+                }
+
+                if($ConfigExists -EQ $true){
                   $NewRepos = {$Repos}.Invoke()
                   Write-Host "Removing Name: $REPO ; Owner: $OWNER "
                   $NewRepos = $NewRepos | % { if(!(($_.Owner -like $OWNER) -and ($_.Name -like $REPO))){$_} }
@@ -486,13 +530,13 @@ Resources:
                   Write-Host "Repo config being saved: $JsonObject"
                   Write-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -Content $JsonObject
                 }else {
-                  Write-Host "GitHub repo $OWNER/$REPO does not exist in config file"
+                  Write-Host "GitHub repo $OWNER/$REPO does not exist in config file and cannot be deleted."
                 }
 
   rEventsRuleRotateRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "GHSAKM-Events-${pIamUserName}"
+      RoleName: !Sub "GHS-AKM-Events-${pIamUserName}"
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -523,6 +567,6 @@ Resources:
       State: ENABLED
       Targets:
         - Arn: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${rAkmSsmAutomation}:$DEFAULT
-          Id: !Sub "GHSAKM-Rotate-${pIamUserName}"
-          Input: !Sub '{"REPOBUCKET":["${pRepoConfigBucketName}"],"GITHUBUSER":["${pGitHubMachineUserName}"],"S3KEY":["${pRepoConfigKey}"],"GITHUBSECRETNAMEACCESSKEYID":["${pGitHubSecretNameAwsKeyId}"],"IAMUSERNAME":["${pIamUserName}"],"GITHUBSECRETNAMEACCESSKEY":["${pGitHubSecretNameAwsKey}"],"GITHUBUSERTOKEN":["${pGitHubToken}"]}'
+          Id: !Sub "GHS-AKM-Rotate-${pIamUserName}"
+          Input: !Sub '{"REPOBUCKET":["${pRepoConfigBucketName}"],"GITHUBUSER":["${pGitHubMachineUserName}"],"S3KEY":["${pRepoConfigKey}"],"GITHUBSECRETNAMEACCESSKEYID":["${pGitHubSecretNameAwsKeyId}"],"IAMUSERNAME":["${pIamUserName}"],"GITHUBSECRETNAMEACCESSKEY":["${pGitHubSecretNameAwsKey}"],"SECRETMANAGERGITHUBTOKEN":["${rGitHubTokenSecret}"]}'
           RoleArn: !GetAtt  rEventsRuleRotateRole.Arn
