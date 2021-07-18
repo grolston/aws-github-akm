@@ -134,6 +134,11 @@ Resources:
 
   rSsmRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: F3
+            reason: "TODO limit policy for logs"
     Properties:
       RoleName: !Sub "GHS-AKM-SSM-${pIamUserName}"
       AssumeRolePolicyDocument:
