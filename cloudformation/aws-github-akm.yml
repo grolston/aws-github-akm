@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: AWS GitHub Secrets AKM Lambda.
+Description: AWS GitHub Secrets AKM SSM Automation
 
 Metadata:
   AWS::CloudFormation::Interface:
