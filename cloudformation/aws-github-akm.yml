@@ -169,11 +169,9 @@ Resources:
                 Resource:  !Sub "arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:${rSnsTopic.TopicName}"
               - Effect: "Allow"
                 Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
+                  - 'logs:*'
                 Resource:
-                  - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/ssm/automation/executeScript:*"
+                  - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/ssm/automation//executeScript:*"
               - Effect: Allow
                 Action:
                   - iam:List*
