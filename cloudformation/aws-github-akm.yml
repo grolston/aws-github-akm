@@ -299,7 +299,12 @@ Resources:
                         $repoPutSecretURL = 'https://api.github.com/repos/'+ $repoOwner + '/'+ $repoName + '/actions/secrets/'+ $SecretName
                         $parameters = @{"encrypted_value" = $SecretValue; "key_id" = $keyId} | ConvertTo-Json
                         $response = Invoke-RestMethod -Headers $headers -Uri $repoPutSecretURL -Method Put -Body $parameters
-                        return $response
+                        if($response.StatusCode -EQ '201'{
+                          return $true
+                        }
+                        else {
+                          return $false
+                        }
                 }
 
                 function Get-GitHubRepoPublicKey {
