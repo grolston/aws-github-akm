@@ -239,6 +239,10 @@ Resources:
             description: "AWS region to run commands in"
             type: "String"
             default: !Sub "${AWS::Region}"
+          SNSTOPIC:
+            description: SNS Topic to send errors to.
+            type: "String"
+            default: !Ref rSnsTopic
         mainSteps:
           - name: ExecuteCode
             action: 'aws:executeScript'
@@ -253,6 +257,7 @@ Resources:
                 GITHUB_SECRET_NAME_ACCESS_KEY_ID: "{{ GITHUBSECRETNAMEACCESSKEYID }}"
                 GITHUB_SECRET_NAME_ACCESS_KEY: "{{ GITHUBSECRETNAMEACCESSKEY }}"
                 AWS_REGION: "{{ REGION }}"
+                SNS_TOPIC: "{{ SNSTOPIC }}"
               Script: |-
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.IdentityManagement -confirm:$false -Force;
@@ -274,7 +279,7 @@ Resources:
                 $GITHUB_SECRET_NAME_ACCESS_KEY= $payload.GITHUB_SECRET_NAME_ACCESS_KEY
                 $REGION = $payload.AWS_REGION
                 $GITHUB_USER_TOKEN = $(Get-SECSecretValue -SecretId $SECRETS_MANAGER_ARN_GITHUB_TOKEN -Region $REGION).SecretString
-
+                $SNS_TOPIC = $payload.SNS_TOPIC
                 # Deletes all IAM Access keys
                 function Delete-IamUserAccessKeys {
                   PARAM([string]$IamUserName)
@@ -304,6 +309,7 @@ Resources:
                           return $true
                         }
                         else {
+                          Publish-SNSMessage -TopicArn $SNS_TOPIC -Message "Failed to set $repoPutSecretURL secret"
                           return $false
                         }
                 }
