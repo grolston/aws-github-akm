@@ -98,6 +98,11 @@ Resources:
 
   rGitHubTokenSecret:
     Type: 'AWS::SecretsManager::Secret'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W77
+            reason: "KMS to be implemented in later version"
     Properties:
       Name: !Sub "GHS-AKM-${pIamUserName}-GitHubToken-${pGitHubMachineUserName}"
       Description: !Sub "GitHub User PAT for GitHub API sync of AWS Access Key for ${pIamUserName}"
@@ -108,6 +113,13 @@ Resources:
 
   rRepoConfigBucket:
     Type: AWS::S3::Bucket
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W51
+            reason: "Using default bucket setup without policy"
+          - id: W35
+            reason: "Logging to be implementing in later version"
     Properties:
       #checkov:skip=CKV_AWS_18: "Ensure the S3 bucket has access logging enabled"
       #checkov:skip=CKV_AWS_21: "Ensure the S3 bucket has versioning enabled"
@@ -126,6 +138,11 @@ Resources:
 
   rSnsTopic:
     Type: AWS::SNS::Topic
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W47
+            reason: "KMS to be implemented in later version"
     Properties:
       #checkov:skip=CKV_AWS_26: "Ensure all data stored in the SNS topic is encrypted"
       Subscription:
@@ -139,6 +156,8 @@ Resources:
         rules_to_suppress:
           - id: F3
             reason: "TODO limit policy for logs"
+          - id: W28
+            reason: "Name of role helps identify or associate it to solution"
     Properties:
       RoleName: !Sub "GHS-AKM-SSM-${pIamUserName}"
       AssumeRolePolicyDocument:
@@ -286,7 +305,14 @@ Resources:
                   $AccessKeys = Get-IamAccessKey -UserName $IamUserName
                   if($AccessKeys.Count -gt 0){
                     foreach ($accesskey in $AccessKeys){
-                      Remove-IAMAccessKey -AccessKeyId $accesskey.AccessKeyId -UserName $IamUserName -Force -Verbose
+                      try{
+                        Remove-IAMAccessKey -AccessKeyId $accesskey.AccessKeyId -UserName $IamUserName -Force -Verbose -ErrorAction "Stop"
+                      }
+                      catch {
+                        $Message = "Failed to remove $($accesskey.AccessKeyId) for IAM User $IamUserName"
+                        Write-Host $Message
+                        Publish-SNSMessage -TopicArn $SNS_TOPIC -Message $Message
+                      }
                     }
                   }
                 }
@@ -550,6 +576,11 @@ Resources:
 
   rEventsRuleRotateRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Role name given to help associate solution with resource"
     Properties:
       RoleName: !Sub "GHS-AKM-Events-${pIamUserName}"
       AssumeRolePolicyDocument:
