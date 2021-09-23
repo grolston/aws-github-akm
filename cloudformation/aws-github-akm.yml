@@ -356,7 +356,15 @@ Resources:
                 Delete-IamUserAccessKeys -IamUserName $IAM_USERNAME
                 $IamNewAccessKey = New-IAMAccessKey -UserName $IAM_USERNAME
                 $tmpfile = "/tmp/$S3_KEY"
-                Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
+                try{
+                  Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
+                }
+                catch {
+                  $Message = "Failed to read S3 Bucket $REPO_BUCKET with key $S3_KEY"
+                  Write-Host $Message
+                  Publish-SNSMessage -TopicArn $SNS_TOPIC -Message $Message
+                  Write-Error $_ -ErrorAction "Stop"
+                }
                 $Repos = (Get-Content $tmpfile | ConvertFrom-Json).Repos
 
                 foreach($repo in $Repos){
@@ -390,6 +398,10 @@ Resources:
             description: "The S3 Object (file) that contains the repo list in json format"
             type: "String"
             default: !Ref pRepoConfigKey
+          SNSTOPIC:
+            description: SNS Topic to send errors to.
+            type: "String"
+            default: !Ref rSnsTopic
         mainSteps:
           - name: ExecuteCode
             action: 'aws:executeScript'
@@ -398,6 +410,7 @@ Resources:
               InputPayload:
                 REPO_BUCKET: "{{ REPOBUCKET }}"
                 S3_KEY: "{{ S3KEY }}"
+                SNS_TOPIC: "{{ SNSTOPIC }}"
               Script: |-
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force
@@ -406,10 +419,19 @@ Resources:
                 $payload = $env:InputPayload | ConvertFrom-Json;
                 $REPO_BUCKET= $payload.REPO_BUCKET
                 $S3_KEY= $payload.S3_KEY
+                $SNS_TOPIC = $payload.SNS_TOPIC
 
                 $tmpfile = "/tmp/$S3_KEY"
                 Write-Host "Attempting to access s3: $REPO_BUCKET / $S3_KEY"
-                Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
+                try{
+                  Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile -ErrorAction "Stop"
+                }
+                catch {
+                  $Message = "Failed to read S3 Bucket $REPO_BUCKET with key $S3_KEY. Runbook GET Repo Config failed."
+                  Write-Host $Message
+                  Publish-SNSMessage -TopicArn $SNS_TOPIC -Message $Message
+                  Write-Error $_ -ErrorAction "Stop"
+                }
                 [string]$jsonString = Get-Content $tmpfile
                 if(Test-Json $jsonString -EA SilentlyContinue ){
                   $Repos = (Get-Content $tmpfile | ConvertFrom-Json).Repos
@@ -442,6 +464,10 @@ Resources:
           GITHUBREPO:
             description: "The name of the GitHub Repository"
             type: "String"
+          SNSTOPIC:
+            description: SNS Topic to send errors to.
+            type: "String"
+            default: !Ref rSnsTopic
         mainSteps:
           - name: ExecuteCode
             action: 'aws:executeScript'
@@ -452,6 +478,7 @@ Resources:
                 S3_KEY: "{{ S3KEY }}"
                 OWNER: "{{ GITHUBOWNER }}"
                 REPO: "{{ GITHUBREPO }}"
+                SNS_TOPIC: "{{ SNSTOPIC }}"
               Script: |-
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force
@@ -462,9 +489,18 @@ Resources:
                 $S3_KEY= $payload.S3_KEY
                 $OWNER = $payload.OWNER
                 $REPO = $payload.REPO
+                $SNS_TOPIC = $payload.SNS_TOPIC
 
                 $tmpfile = "/tmp/$S3_KEY"
-                Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
+                try{
+                  Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
+                }
+                catch {
+                  $Message = "Failed to read S3 Bucket $REPO_BUCKET with key $S3_KEY"
+                  Write-Host $Message
+                  Publish-SNSMessage -TopicArn $SNS_TOPIC -Message $Message
+                  Write-Error $_ -ErrorAction "Stop"
+                }
                 [string]$jsonString = Get-Content $tmpfile
                 if(Test-Json $jsonString -EA SilentlyContinue ){
                   $Repos = (Get-Content $tmpfile | ConvertFrom-Json).Repos
@@ -492,7 +528,15 @@ Resources:
                   $jsonBase = @{"Repos"=$NewRepos;}
                   [string]$JsonObject = $jsonBase | ConvertTo-Json -Depth 10
                   Write-Host "Repo config being saved: $JsonObject"
-                  Write-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -Content $JsonObject
+                  try{
+                    Write-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -Content $JsonObject -ErrorAction "Stop"
+                  }
+                  catch {
+                    $Message = "Failed to WRITE to S3 Bucket $REPO_BUCKET with key $S3_KEY. Runbook ADD RepoConfig failed."
+                    Write-Host $Message
+                    Publish-SNSMessage -TopicArn $SNS_TOPIC -Message $Message
+                    Write-Error -Message $_ -ErrorAction "Stop"
+                  }
                 }else {
                   Write-Host "GitHub repo $OWNER/$REPO already in config file"
                 }
@@ -521,6 +565,10 @@ Resources:
             description: "The S3 Object (file) which will contain the repo list in json format"
             type: "String"
             default: !Ref pRepoConfigKey
+          SNSTOPIC:
+            description: SNS Topic to send errors to.
+            type: "String"
+            default: !Ref rSnsTopic
         mainSteps:
           - name: ExecuteCode
             action: 'aws:executeScript'
@@ -531,6 +579,7 @@ Resources:
                 S3_KEY: "{{ S3KEY }}"
                 OWNER: "{{ GITHUBOWNER }}"
                 REPO: "{{ GITHUBREPO }}"
+                SNS_TOPIC: "{{ SNSTOPIC }}"
               Script: |-
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force
@@ -541,9 +590,18 @@ Resources:
                 $S3_KEY= $payload.S3_KEY
                 $OWNER = $payload.OWNER
                 $REPO = $payload.REPO
+                $SNS_TOPIC = $payload.SNS_TOPIC
 
                 $tmpfile = "/tmp/$S3_KEY"
-                Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
+                try{
+                  Read-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -File $tmpfile
+                }
+                catch {
+                  $Message = "Failed to read S3 Bucket $REPO_BUCKET with key $S3_KEY"
+                  Write-Host $Message
+                  Publish-SNSMessage -TopicArn $SNS_TOPIC -Message $Message
+                  Write-Error $_ -ErrorAction "Stop"
+                }
                 [string]$jsonString = Get-Content $tmpfile
                 if(Test-Json $jsonString -EA SilentlyContinue ){
                   $Repos = (Get-Content $tmpfile | ConvertFrom-Json).Repos
@@ -569,7 +627,15 @@ Resources:
                   $jsonBase = @{"Repos"=$NewRepos;}
                   [string]$JsonObject = $jsonBase | ConvertTo-Json -Depth 10
                   Write-Host "Repo config being saved: $JsonObject"
-                  Write-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -Content $JsonObject
+                  try{
+                    Write-S3Object -BucketName $REPO_BUCKET -Key $S3_KEY -Content $JsonObject -ErrorAction "Stop"
+                  }
+                  catch {
+                    $Message = "Failed to WRITE to S3 Bucket $REPO_BUCKET with key $S3_KEY. Runbook DELETE RepoConfig failed."
+                    Write-Host $Message
+                    Publish-SNSMessage -TopicArn $SNS_TOPIC -Message $Message
+                    Write-Error -Message $_ -ErrorAction "Stop"
+                  }
                 }else {
                   Write-Host "GitHub repo $OWNER/$REPO does not exist in config file and cannot be deleted."
                 }
