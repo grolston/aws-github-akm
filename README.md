@@ -59,6 +59,9 @@ The follow parameters will need to be supplied upon deploying the stack
 | GitHub Secret Name AWS Key ID | The GitHub Secret Name value for the AWS Key ID | String | `AWS_ACCESS_KEY_ID` |
 | GitHub Secret Name AWS Key | The GitHub Secret Name value for the AWS Key | String | `AWS_SECRET_ACCESS_KEY` |
 
+## Architecture
+
+!["AWS GitHub AKM Architecture"](/docs/images/AWS-GitHub-AKM.png "AWS GitHub AKM Architecture")
 
 ## S3 Repository List
 
