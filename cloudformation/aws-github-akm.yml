@@ -80,7 +80,7 @@ Parameters:
   pHoursToRotate:
     Type: Number
     Description: Hours between each key rotation (week=168, month=730, quarter= 2920 )
-    Default: 24
+    Default: 6
     MinValue: 2
     MaxValue: 2190
 
