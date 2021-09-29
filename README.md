@@ -1,6 +1,6 @@
 # AWS GitHub AKM
 
-An AWS management tool for AWS Access Key Manager and your GitHub [Encrypted Secrets](https://docs.github.com/en/actions/reference/encrypted-secrets). AWS GitHub Secrets Access Key Manager (AWS-GHS-AKM) is a solution to automatically rotate AWS IAM User API Access Keys and then sync those keys into user-defined GitHub repository secrets.
+An AWS management tool for AWS IAM User Access Keys and your GitHub [Encrypted Secrets](https://docs.github.com/en/actions/reference/encrypted-secrets). AWS GitHub Secrets Access Key Manager (AWS-GHS-AKM) is a solution to automatically rotate AWS IAM User API Access Keys and then sync those keys into user-defined GitHub repository secrets.
 
 ## General Use-Case
 
