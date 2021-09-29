@@ -68,7 +68,7 @@ The following details how the prerequisites and the AWS-GitHub-AKM stack resourc
 1. `Prerequisite` - Have one to many GitHub Repositories which you want to apply the IAM User Access Key to with GitHub Secrets
 2. `Prerequisite` - A [personal access token](https://github.com/settings/tokens) and appropriate permissions for GitHub Actions and repo management. It is recommended to use a GitHub Machine User account (separate account setup for only automation use).
 3. `Prerequisite` - An AWS Account which you have the necessary permissions to deploy (for simplicity, you are admin)
-4. `Prerequisite` - An provisioned IAM User that is able to have programmatic access and your permissions necessary to execute your CICD operations.
+4. `Prerequisite` - A provisioned IAM User that is able to have programmatic access and your permissions necessary to execute your CICD operations.
 5. The AWS-GitHub-AKM stack is deployed into the AWS account provisioning the following the AWS-GitHub-AKM role, its managed permissions, SSM Automation docs for management of the AKM rotation, CloudWatch Scheduled Event, AWS Secret, and S3 Bucket.
 6. The AWS-GitHub-AKM role deployed leverages a managed policy giving it only permissions to only rotate the IAM user defined in #4. The role also has ability to access the AWS Secret storing the GitHub Personal Access Token and the S3 Bucket containing the repo inventory.
 7. AWS-GitHub-AKM deploys an S3 Bucket which contains the repos.json file that instructs the the AWS-GitHub-AKM automation to rotate specific repositories leveraging the GitHub PAT stored in Secrets Manager. Editing the list enables the user to add or remove managed repositories.
