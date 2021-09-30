@@ -320,26 +320,27 @@ Resources:
                 }
 
                 function Set-RepoSecret {
-                    [CmdletBinding()]
-                    Param(
-                        [string]$repoOwner, [string]$repoName,
-                        [string]$keyId, [string]$SecretValue,
-                        [string]$SecretName, [string]$GitHubToken,
-                        [string]$GitHubUser
-                    )
-                        $token = "$($GitHubUser):$($GitHubToken)"
-                        $base64Token = [System.Convert]::ToBase64String([char[]]$token)
-                        $headers = @{Authorization = 'Basic {0}' -f $base64Token};
-                        $repoPutSecretURL = 'https://api.github.com/repos/'+ $repoOwner + '/'+ $repoName + '/actions/secrets/'+ $SecretName
-                        $parameters = @{"encrypted_value" = $SecretValue; "key_id" = $keyId} | ConvertTo-Json
-                        $response = Invoke-RestMethod -Headers $headers -Uri $repoPutSecretURL -Method Put -Body $parameters
-                        if($response.StatusCode -EQ '201'){
-                          return $true
-                        }
-                        else {
-                          Publish-SNSMessage -TopicArn $SNS_TOPIC -Message "Failed to set $repoPutSecretURL secret"
-                          return $false
-                        }
+                  [CmdletBinding()]
+                  Param(
+                      [string]$repoOwner, [string]$repoName,
+                      [string]$keyId, [string]$SecretValue,
+                      [string]$SecretName, [string]$GitHubToken,
+                      [string]$GitHubUser
+                  )
+                  $token = "$($GitHubUser):$($GitHubToken)"
+                  $base64Token = [System.Convert]::ToBase64String([char[]]$token)
+                  $headers = @{Authorization = 'Basic {0}' -f $base64Token};
+                  $repoPutSecretURL = 'https://api.github.com/repos/'+ $repoOwner + '/'+ $repoName + '/actions/secrets/'+ $SecretName
+                  $parameters = @{"encrypted_value" = $SecretValue; "key_id" = $keyId} | ConvertTo-Json
+                  try{
+                    $response = Invoke-RestMethod -Headers $headers -Uri $repoPutSecretURL -Method Put -Body $parameters -ErrorAction 'Stop'
+                  }
+                  catch {
+                    $Message = "Failed to set the secret $SecretName on repo $repoName in Org/Owner $repoOwner "
+                    Write-Host $Message
+                    Publish-SNSMessage -TopicArn $SNS_TOPIC -Message $Message
+                    return $false
+                  }
                 }
 
                 function Get-GitHubRepoPublicKey {
