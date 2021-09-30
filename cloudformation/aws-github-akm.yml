@@ -282,11 +282,13 @@ Resources:
                 Install-Module AWS.Tools.IdentityManagement -confirm:$false -Force;
                 Install-Module PSSodium -confirm:$false -Force;
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force;
-                Install-Module AWS.Tools.SecretsManager -Confirm:$false -Force;
+                Install-Module AWS.Tools.SimpleNotificationService -Force;
                 Import-Module PSSodium;
                 Import-Module AWS.Tools.IdentityManagement;
-                Import-Module AWS.Tools.S3
-                Import-Module AWS.Tools.SecretsManager
+                Import-Module AWS.Tools.S3;
+                Import-Module AWS.Tools.SecretsManager;
+                Install-Module AWS.Tools.SecretsManager -Confirm:$false -Force;
+                Import-Module AWS.Tools.SimpleNotificationService;
 
                 $payload = $env:InputPayload | ConvertFrom-Json;
                 $REPO_BUCKET= $payload.REPO_BUCKET
@@ -331,7 +333,7 @@ Resources:
                         $repoPutSecretURL = 'https://api.github.com/repos/'+ $repoOwner + '/'+ $repoName + '/actions/secrets/'+ $SecretName
                         $parameters = @{"encrypted_value" = $SecretValue; "key_id" = $keyId} | ConvertTo-Json
                         $response = Invoke-RestMethod -Headers $headers -Uri $repoPutSecretURL -Method Put -Body $parameters
-                        if($response.StatusCode -EQ '201'{
+                        if($response.StatusCode -EQ '201'){
                           return $true
                         }
                         else {
@@ -414,7 +416,9 @@ Resources:
               Script: |-
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force
-                Import-Module AWS.Tools.S3
+                Import-Module AWS.Tools.S3;
+                Install-Module AWS.Tools.SecretsManager -Confirm:$false -Force;
+                Import-Module AWS.Tools.SimpleNotificationService;
 
                 $payload = $env:InputPayload | ConvertFrom-Json;
                 $REPO_BUCKET= $payload.REPO_BUCKET
@@ -483,6 +487,8 @@ Resources:
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force
                 Import-Module AWS.Tools.S3
+                Install-Module AWS.Tools.SecretsManager -Confirm:$false -Force;
+                Import-Module AWS.Tools.SimpleNotificationService;
 
                 $payload = $env:InputPayload | ConvertFrom-Json;
                 $REPO_BUCKET= $payload.REPO_BUCKET
@@ -582,8 +588,10 @@ Resources:
                 SNS_TOPIC: "{{ SNSTOPIC }}"
               Script: |-
                 $ErrorActionPreference = 'Stop';
-                Install-Module AWS.Tools.S3 -Confirm:$false -Force
-                Import-Module AWS.Tools.S3
+                Install-Module AWS.Tools.S3 -Confirm:$false -Force;
+                Import-Module AWS.Tools.S3;
+                Install-Module AWS.Tools.SecretsManager -Confirm:$false -Force;
+                Import-Module AWS.Tools.SimpleNotificationService;
 
                 $payload = $env:InputPayload | ConvertFrom-Json;
                 $REPO_BUCKET= $payload.REPO_BUCKET
