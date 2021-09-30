@@ -286,8 +286,8 @@ Resources:
                 Import-Module PSSodium;
                 Import-Module AWS.Tools.IdentityManagement;
                 Import-Module AWS.Tools.S3;
-                Import-Module AWS.Tools.SecretsManager;
                 Install-Module AWS.Tools.SecretsManager -Confirm:$false -Force;
+                Import-Module AWS.Tools.SecretsManager;
                 Import-Module AWS.Tools.SimpleNotificationService;
 
                 $payload = $env:InputPayload | ConvertFrom-Json;
