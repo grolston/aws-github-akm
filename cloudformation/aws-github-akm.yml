@@ -282,12 +282,12 @@ Resources:
                 Install-Module AWS.Tools.IdentityManagement -confirm:$false -Force;
                 Install-Module PSSodium -confirm:$false -Force;
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force;
-                Install-Module AWS.Tools.SimpleNotificationService -Force;
                 Import-Module PSSodium;
                 Import-Module AWS.Tools.IdentityManagement;
                 Import-Module AWS.Tools.S3;
                 Install-Module AWS.Tools.SecretsManager -Confirm:$false -Force;
                 Import-Module AWS.Tools.SecretsManager;
+                Install-Module AWS.Tools.SimpleNotificationService -Force;
                 Import-Module AWS.Tools.SimpleNotificationService;
 
                 $payload = $env:InputPayload | ConvertFrom-Json;
@@ -418,7 +418,7 @@ Resources:
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force
                 Import-Module AWS.Tools.S3;
-                Install-Module AWS.Tools.SecretsManager -Confirm:$false -Force;
+                Install-Module AWS.Tools.SimpleNotificationService -Force;
                 Import-Module AWS.Tools.SimpleNotificationService;
 
                 $payload = $env:InputPayload | ConvertFrom-Json;
@@ -488,7 +488,7 @@ Resources:
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force
                 Import-Module AWS.Tools.S3
-                Install-Module AWS.Tools.SecretsManager -Confirm:$false -Force;
+                Install-Module AWS.Tools.SimpleNotificationService -Force;
                 Import-Module AWS.Tools.SimpleNotificationService;
 
                 $payload = $env:InputPayload | ConvertFrom-Json;
@@ -591,7 +591,7 @@ Resources:
                 $ErrorActionPreference = 'Stop';
                 Install-Module AWS.Tools.S3 -Confirm:$false -Force;
                 Import-Module AWS.Tools.S3;
-                Install-Module AWS.Tools.SecretsManager -Confirm:$false -Force;
+                Install-Module AWS.Tools.SimpleNotificationService -Force;
                 Import-Module AWS.Tools.SimpleNotificationService;
 
                 $payload = $env:InputPayload | ConvertFrom-Json;
